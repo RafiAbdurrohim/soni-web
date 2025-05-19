@@ -8,7 +8,11 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
         .water-animation {
             background: linear-gradient(0deg, #48a3ff 0%, #0064c9 100%);
@@ -72,6 +76,8 @@
                     <a href="#status" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Status</a>
                     <a href="#histori" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Histori</a>
                     <a href="#about" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">Tentang</a>
+                    <a href="login.html" class="text-blue-200 hover:text-white transition-colors duration-200 font-medium">login</a>
+                    
                 </div>
                 
                 <!-- Mobile menu button -->
@@ -219,7 +225,7 @@
                             </div>
                         </div>
                         <div class="h-80">
-                            <canvas id="waterLevelChart"></canvas>
+                            <canvas id="waterLevelChart" class="w-full h-64"></canvas>
                         </div>
                     </div>
 
@@ -566,171 +572,162 @@
     </footer>
 
     <script>
-        // Mobile menu toggle
-        document.getElementById('mobile-menu-button').addEventListener('click', function() {
-            const mobileMenu = document.getElementById('mobile-menu');
-            if (mobileMenu.classList.contains('hidden')) {
-                mobileMenu.classList.remove('hidden');
-                mobileMenu.classList.add('animate__fadeIn');
-            } else {
-                mobileMenu.classList.add('hidden');
-            }
+    const firebaseConfig = {
+        apiKey: "AIzaSyCg--e5QYzKYE2awvq8_9OgfGVWsmMsMU8",
+        authDomain: "aquamonitor-adccd.firebaseapp.com",
+        databaseURL: "https://aquamonitor-adccd-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "aquamonitor-adccd",
+        storageBucket: "aquamonitor-adccd.firebasestorage.app",
+        messagingSenderId: "645501631585",
+        appId: "1:645501631585:web:795504687cb884a18ffe20"
+    };
+
+    // Inisialisasi Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    const grafikRef = db.ref("aquamonitor/water_levels");
+
+    grafikRef.limitToLast(24).on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const labels = [];
+        const tinggiData = [];
+
+        // Urutkan data berdasarkan waktu
+        const sortedKeys = Object.keys(data).sort();
+
+        sortedKeys.forEach((waktu) => {
+        labels.push(waktu.slice(11, 16)); // Ambil jam & menit
+        tinggiData.push(data[waktu].tinggi_air);
         });
 
-        // Initialize water level chart
-        document.addEventListener('DOMContentLoaded', function() {
-            const ctx = document.getElementById('waterLevelChart').getContext('2d');
-            
-            // Generate dummy data
-            const generateHours = () => {
-                const hours = [];
-                for (let i = 0; i < 24; i++) {
-                    const hour = i.toString().padStart(2, '0') + ':00';
-                    hours.push(hour);
+        // Update chart
+        if (window.waterLevelChart) {
+        window.waterLevelChart.data.labels = labels;
+        window.waterLevelChart.data.datasets[0].data = tinggiData;
+        window.waterLevelChart.update();
+        }
+    });
+
+    // Buat chart kosong dulu saat halaman load
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('waterLevelChart').getContext('2d');
+        window.waterLevelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+            label: 'Ketinggian Air (meter)',
+            data: [],
+            fill: {
+                target: 'origin',
+                above: 'rgba(59, 130, 246, 0.2)'
+            },
+            borderColor: 'rgb(59, 130, 246)',
+            tension: 0.4,
+            pointBackgroundColor: 'rgb(59, 130, 246)',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                label: function(context) {
+                    return `Ketinggian: ${context.parsed.y} meter`;
                 }
-                return hours;
-            };
-            
-            const generateData = () => {
-                const data = [];
-                let value = 1.5;
-                for (let i = 0; i < 24; i++) {
-                    // Random variation between -0.3 and +0.3
-                    const variation = (Math.random() * 0.6) - 0.3;
-                    value += variation;
-                    // Keep value between 1.0 and 3.0
-                    value = Math.max(1.0, Math.min(3.0, value));
-                    data.push(value.toFixed(1));
                 }
-                return data;
-            };
-            
-            const labels = generateHours();
-            const data = generateData();
-            
-            const waterLevelChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Ketinggian Air (meter)',
-                        data: data,
-                        fill: {
-                            target: 'origin',
-                            above: 'rgba(59, 130, 246, 0.2)'
-                        },
-                        borderColor: 'rgb(59, 130, 246)',
-                        tension: 0.4,
-                        pointBackgroundColor: 'rgb(59, 130, 246)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
-                    }]
+            },
+            legend: {
+                position: 'top',
+                align: 'end'
+            }
+            },
+            scales: {
+            y: {
+                beginAtZero: false,
+                min: 1.0,
+                max: 4.0,
+                ticks: {
+                stepSize: 0.5,
+                callback: function(value) {
+                    return value + ' m';
+                }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return `Ketinggian: ${context.parsed.y} meter`;
-                                }
-                            }
-                        },
-                        legend: {
-                            position: 'top',
-                            align: 'end'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            min: 1.0,
-                            max: 4.0,
-                            ticks: {
-                                stepSize: 0.5,
-                                callback: function(value) {
-                                    return value + ' m';
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    }
+                grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
                 }
-            });
-            
-            // Demo water level animation
-            const waterLevelElement = document.getElementById('water-level');
-            const waterPercentageElement = document.getElementById('water-percentage');
-            const currentHeightElement = document.getElementById('current-height');
-            const statusLevelElement = document.getElementById('status-level');
-            
-            function updateWaterLevel() {
-                // Simulate changing water level
-                let currentHeight = parseFloat(currentHeightElement.innerText);
-                let randomChange = (Math.random() * 0.2) - 0.1; // Random change between -0.1 and 0.1
-                let newHeight = Math.max(1.0, Math.min(4.0, currentHeight + randomChange)).toFixed(1);
-                
-                // Update height text
-                currentHeightElement.innerText = newHeight + ' meter';
-                
-                // Calculate percentage (based on max height of 4.0m)
-                let percentage = Math.round((newHeight / 4.0) * 100);
-                waterPercentageElement.innerText = percentage + '%';
-                
-                // Update visual water level
-                waterLevelElement.style.height = percentage + '%';
-                
-                // Update status based on height
-                if (newHeight >= 3.0) {
-                    statusLevelElement.innerText = 'BAHAYA';
-                    statusLevelElement.className = 'ml-2 font-bold text-red-500';
-                    waterLevelElement.style.background = 'linear-gradient(0deg, #f87171 0%, #dc2626 100%)';
-                } else if (newHeight >= 2.0) {
-                    statusLevelElement.innerText = 'WASPADA';
-                    statusLevelElement.className = 'ml-2 font-bold text-yellow-500';
-                    waterLevelElement.style.background = 'linear-gradient(0deg, #fbbf24 0%, #d97706 100%)';
-                } else {
-                    statusLevelElement.innerText = 'NORMAL';
-                    statusLevelElement.className = 'ml-2 font-bold text-green-500';
-                    waterLevelElement.style.background = 'linear-gradient(0deg, #48a3ff 0%, #0064c9 100%)';
+            },
+            x: {
+                grid: {
+                color: 'rgba(0, 0, 0, 0.05)'
                 }
             }
-            
-            // Update every 5 seconds for demo
-            setInterval(updateWaterLevel, 5000);
-            
-            // Update last updated time
-            function updateTime() {
-                const now = new Date();
-                const options = { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                };
-                const formattedDate = now.toLocaleDateString('id-ID', options) + ' WIB';
-                document.getElementById('last-update').innerText = 'Update Terakhir: ' + formattedDate;
+            },
+            interaction: {
+            intersect: false,
+            mode: 'index'
             }
-            
-            // Update time every minute
-            setInterval(updateTime, 60000);
-            updateTime(); // Initial update
+        }
         });
+    });
+
+    // Ambil data status real-time dari Firebase
+    const statusRef = db.ref("aquamonitor/status");
+
+    statusRef.on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        const tinggi = parseFloat(data.tinggi_terakhir);
+        const status = data.status_terakhir;
+        const waktu = data.waktu;
+
+        // Update elemen DOM
+        document.getElementById("current-height").innerText = tinggi + " meter";
+        document.getElementById("last-update").innerText = "Update Terakhir: " + waktu;
+
+        // Update persentase dan animasi air
+        const persen = Math.min((tinggi / 4.0) * 100, 100);
+        document.getElementById("water-percentage").innerText = Math.round(persen) + "%";
+        const waterLevel = document.getElementById("water-level");
+        waterLevel.style.height = persen + "%";
+
+        // Update status warna
+        const statusEl = document.getElementById("status-level");
+        statusEl.innerText = status.toUpperCase();
+
+        if (status === "Bahaya") {
+        statusEl.className = "ml-2 font-bold text-red-500";
+        waterLevel.style.background = "linear-gradient(0deg, #f87171 0%, #dc2626 100%)";
+        } else if (status === "Waspada") {
+        statusEl.className = "ml-2 font-bold text-yellow-500";
+        waterLevel.style.background = "linear-gradient(0deg, #fbbf24 0%, #d97706 100%)";
+        } else {
+        statusEl.className = "ml-2 font-bold text-green-500";
+        waterLevel.style.background = "linear-gradient(0deg, #48a3ff 0%, #0064c9 100%)";
+        }
+    });
+
+    // Mobile menu toggle
+    document.getElementById('mobile-menu-button').addEventListener('click', function() {
+        const mobileMenu = document.getElementById('mobile-menu');
+        if (mobileMenu.classList.contains('hidden')) {
+        mobileMenu.classList.remove('hidden');
+        mobileMenu.classList.add('animate__fadeIn');
+        } else {
+        mobileMenu.classList.add('hidden');
+        }
+    });
+    
     </script>
+
 </body>
 </html>
